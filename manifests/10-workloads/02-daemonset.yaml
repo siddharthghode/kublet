@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kubepulse-node-agent
+  namespace: kubepulse-dev
+  labels:
+    app.kubernetes.io/name: kubepulse-agent
+    app.kubernetes.io/component: monitoring
+spec:
+  selector:
+    matchLabels:
+      name: kubepulse-node-agent
+  template:
+    metadata:
+      labels:
+        name: kubepulse-node-agent
+    spec:
+      tolerations:
+        # Allow DaemonSet to run on master / control-plane nodes too if needed
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: node-collector
+          image: busybox:1.36
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              while true; do
+                echo "Node $(hostname) Agent - Heartbeat $(date)";
+                sleep 30;
+              done
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi

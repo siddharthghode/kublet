@@ -1,0 +1,27 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kubepulse-health-monitor-cron
+  namespace: kubepulse-dev
+  labels:
+    app.kubernetes.io/name: kubepulse
+    app.kubernetes.io/component: monitoring
+spec:
+  schedule: "*/5 * * * *" # Run every 5 minutes
+  concurrencyPolicy: Forbid # Do not run overlapping jobs
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: health-checker
+              image: curlimages/curl:latest
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  echo "[$(date)] Running scheduled ping against KubePulse ClusterIP service..."
+                  curl -fsS http://kubepulse-clusterip-svc.kubepulse-dev.svc.cluster.local/health || exit 1
+                  echo "Service is healthy!"

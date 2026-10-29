@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubepulse-rolling-deployment
+  namespace: kubepulse-dev
+  labels:
+    app.kubernetes.io/name: kubepulse
+    app.kubernetes.io/component: frontend
+  annotations:
+    kubernetes.io/change-cause: "Initial release v1.0.0 with RollingUpdate strategy"
+spec:
+  replicas: 4
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1        # Max 1 extra pod created during rollout (25% burst)
+      maxUnavailable: 0  # 0 pods can be unavailable; ensures zero downtime
+  selector:
+    matchLabels:
+      app: kubepulse-rolling
+  template:
+    metadata:
+      labels:
+        app: kubepulse-rolling
+        version: "1.0.0"
+    spec:
+      containers:
+        - name: kubepulse
+          image: kubepulse:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80

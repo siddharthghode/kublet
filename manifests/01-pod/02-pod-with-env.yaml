@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kubepulse-env-pod
+  namespace: kubepulse-dev
+  labels:
+    app.kubernetes.io/name: kubepulse
+    app.kubernetes.io/instance: kubepulse-env
+    app.kubernetes.io/component: frontend
+    environment: development
+spec:
+  containers:
+    - name: kubepulse
+      image: kubepulse:latest
+      imagePullPolicy: IfNotPresent
+      ports:
+        - name: http
+          containerPort: 80
+          protocol: TCP
+      env:
+        - name: APP_NAME
+          value: "KubePulse-EnvDemo"
+        - name: ENVIRONMENT
+          value: "development"
+        - name: REGION
+          value: "ap-south-1"
+        - name: VERSION
+          value: "1.0.0"
+        # Kubernetes Downward API: injects pod metadata dynamically
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName

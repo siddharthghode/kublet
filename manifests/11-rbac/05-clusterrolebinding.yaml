@@ -1,0 +1,14 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kubepulse-node-viewer-clusterrolebinding
+  labels:
+    app.kubernetes.io/name: kubepulse
+subjects:
+  - kind: ServiceAccount
+    name: kubepulse-sa
+    namespace: kubepulse-dev
+roleRef:
+  kind: ClusterRole
+  name: kubepulse-node-viewer-clusterrole
+  apiGroup: rbac.authorization.k8s.io

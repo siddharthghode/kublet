@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubepulse-storage-deployment
+  namespace: kubepulse-dev
+  labels:
+    app.kubernetes.io/name: kubepulse
+spec:
+  replicas: 1 # ReadWriteOnce volume should be mounted to single pod or same node
+  selector:
+    matchLabels:
+      app: kubepulse-storage
+  template:
+    metadata:
+      labels:
+        app: kubepulse-storage
+    spec:
+      volumes:
+        - name: app-persistent-storage
+          persistentVolumeClaim:
+            claimName: kubepulse-pvc
+      containers:
+        - name: kubepulse
+          image: kubepulse:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+          volumeMounts:
+            - name: app-persistent-storage
+              mountPath: /var/log/nginx

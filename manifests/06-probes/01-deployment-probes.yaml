@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubepulse-probes-deployment
+  namespace: kubepulse-dev
+  labels:
+    app.kubernetes.io/name: kubepulse
+    app.kubernetes.io/component: frontend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: kubepulse-probes
+  template:
+    metadata:
+      labels:
+        app: kubepulse-probes
+    spec:
+      containers:
+        - name: kubepulse
+          image: kubepulse:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+
+          # 1. Startup Probe: Holds liveness and readiness until initial boot completes
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 2
+            periodSeconds: 3
+            timeoutSeconds: 2
+            failureThreshold: 10 # Allows up to 30 seconds (10 * 3s) for slow boot
+
+          # 2. Liveness Probe: Detects if the app crashed or deadlocked; triggers container restart
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            periodSeconds: 10
+            timeoutSeconds: 2
+            successThreshold: 1
+            failureThreshold: 3
+
+          # 3. Readiness Probe: Detects if the container is ready to accept traffic; removes from Endpoints if failing
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 2
+            successThreshold: 1
+            failureThreshold: 2

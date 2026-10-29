@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubepulse-config-demo
+  namespace: kubepulse-dev
+  labels:
+    app.kubernetes.io/name: kubepulse
+    app.kubernetes.io/component: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: kubepulse-config-demo
+  template:
+    metadata:
+      labels:
+        app: kubepulse-config-demo
+    spec:
+      volumes:
+        # 1. Mount config.js from ConfigMap
+        - name: app-runtime-config
+          configMap:
+            name: kubepulse-config
+            items:
+              - key: config.js
+                path: config.js
+
+        # 2. Mount secret keys as files
+        - name: secret-volume
+          secret:
+            secretName: kubepulse-secret
+            defaultMode: 0400 # Read-only permissions
+
+      containers:
+        - name: kubepulse
+          image: kubepulse:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+
+          # Inject environment variables
+          env:
+            # Downward API: pod metadata
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+
+            # Specific key from ConfigMap
+            - name: VITE_APP_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: kubepulse-config
+                  key: APP_NAME
+            - name: VITE_ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: kubepulse-config
+                  key: ENVIRONMENT
+            - name: VITE_REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: kubepulse-config
+                  key: REGION
+
+            # Specific key from Secret
+            - name: API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: kubepulse-secret
+                  key: API_KEY
+
+          # Inject ALL keys from ConfigMap at once
+          envFrom:
+            - configMapRef:
+                name: kubepulse-config
+
+          # Mount files into container
+          volumeMounts:
+            # Mount runtime config.js into Nginx web root
+            - name: app-runtime-config
+              mountPath: /usr/share/nginx/html/config.js
+              subPath: config.js
+            # Mount secret keys into /etc/secrets directory
+            - name: secret-volume
+              mountPath: /etc/secrets
+              readOnly: true

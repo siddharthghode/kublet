@@ -1,0 +1,12 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: kubepulse-pdb
+  namespace: kubepulse-dev
+  labels:
+    app.kubernetes.io/name: kubepulse
+spec:
+  minAvailable: 1 # Guarantees at least 1 replica stays available during node drain or eviction
+  selector:
+    matchLabels:
+      app: kubepulse

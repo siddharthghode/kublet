@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kubepulse-basic-pod
+  namespace: kubepulse-dev
+  labels:
+    app.kubernetes.io/name: kubepulse
+    app.kubernetes.io/instance: kubepulse-basic
+    app.kubernetes.io/component: frontend
+    environment: development
+spec:
+  containers:
+    - name: kubepulse
+      image: kubepulse:latest
+      imagePullPolicy: IfNotPresent
+      ports:
+        - name: http
+          containerPort: 80
+          protocol: TCP

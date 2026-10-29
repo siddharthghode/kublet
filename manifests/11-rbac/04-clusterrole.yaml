@@ -1,0 +1,10 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubepulse-node-viewer-clusterrole
+  labels:
+    app.kubernetes.io/name: kubepulse
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "nodes/status", "namespaces"]
+    verbs: ["get", "list", "watch"]

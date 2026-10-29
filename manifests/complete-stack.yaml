@@ -1,0 +1,272 @@
+# ==============================================================================
+# KubePulse - Full Complete Production Kubernetes Stack
+# Apply all resources with: kubectl apply -f manifests/complete-stack.yaml
+# ==============================================================================
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kubepulse-dev
+  labels:
+    name: kubepulse-dev
+    environment: development
+    app.kubernetes.io/name: kubepulse
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kubepulse-sa
+  namespace: kubepulse-dev
+  labels:
+    app.kubernetes.io/name: kubepulse
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubepulse-config
+  namespace: kubepulse-dev
+  labels:
+    app.kubernetes.io/name: kubepulse
+data:
+  APP_NAME: "KubePulse Production"
+  APP_VERSION: "1.0.0"
+  ENVIRONMENT: "kubernetes-production"
+  REGION: "ap-south-1"
+  config.js: |
+    window.__CONFIG__ = {
+      APP_NAME: "KubePulse (Live K8s ConfigMap)",
+      APP_VERSION: "1.0.0",
+      ENVIRONMENT: "k8s-cluster",
+      REGION: "ap-south-1"
+    };
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kubepulse-secret
+  namespace: kubepulse-dev
+  labels:
+    app.kubernetes.io/name: kubepulse
+type: Opaque
+stringData:
+  API_KEY: "prod-secret-token-k8s-live"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubepulse-deployment
+  namespace: kubepulse-dev
+  labels:
+    app.kubernetes.io/name: kubepulse
+    app.kubernetes.io/component: frontend
+  annotations:
+    kubernetes.io/change-cause: "Production deployment with rolling updates, probes, and HPA"
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: kubepulse
+  template:
+    metadata:
+      labels:
+        app: kubepulse
+        app.kubernetes.io/name: kubepulse
+    spec:
+      serviceAccountName: kubepulse-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        fsGroup: 101
+      volumes:
+        - name: app-runtime-config
+          configMap:
+            name: kubepulse-config
+            items:
+              - key: config.js
+                path: config.js
+      containers:
+        - name: kubepulse
+          image: kubepulse:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: VITE_APP_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: kubepulse-config
+                  key: APP_NAME
+            - name: VITE_ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: kubepulse-config
+                  key: ENVIRONMENT
+            - name: VITE_REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: kubepulse-config
+                  key: REGION
+            - name: API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: kubepulse-secret
+                  key: API_KEY
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 2
+            periodSeconds: 3
+            failureThreshold: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 2
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+          volumeMounts:
+            - name: app-runtime-config
+              mountPath: /usr/share/nginx/html/config.js
+              subPath: config.js
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubepulse-service
+  namespace: kubepulse-dev
+  labels:
+    app.kubernetes.io/name: kubepulse
+    app.kubernetes.io/component: service
+spec:
+  type: ClusterIP
+  selector:
+    app: kubepulse
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      protocol: TCP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubepulse-nodeport
+  namespace: kubepulse-dev
+  labels:
+    app.kubernetes.io/name: kubepulse
+spec:
+  type: NodePort
+  selector:
+    app: kubepulse
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      nodePort: 30080
+      protocol: TCP
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: kubepulse-hpa
+  namespace: kubepulse-dev
+  labels:
+    app.kubernetes.io/name: kubepulse
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: kubepulse-deployment
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: kubepulse-pdb
+  namespace: kubepulse-dev
+  labels:
+    app.kubernetes.io/name: kubepulse
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: kubepulse
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kubepulse-netpol
+  namespace: kubepulse-dev
+  labels:
+    app.kubernetes.io/name: kubepulse
+spec:
+  podSelector:
+    matchLabels:
+      app: kubepulse
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 80
+  egress:
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53

@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kubepulse-statefulset
+  namespace: kubepulse-dev
+  labels:
+    app.kubernetes.io/name: kubepulse
+    app.kubernetes.io/component: stateful-backend
+spec:
+  serviceName: kubepulse-headless-svc  # Must match a Headless Service
+  replicas: 3
+  podManagementPolicy: OrderedReady   # Starts pods in sequence: 0, 1, 2
+  selector:
+    matchLabels:
+      app: kubepulse-stateful
+  template:
+    metadata:
+      labels:
+        app: kubepulse-stateful
+    spec:
+      containers:
+        - name: kubepulse
+          image: kubepulse:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+          volumeMounts:
+            - name: data-volume
+              mountPath: /usr/share/nginx/html/data
+  # Dynamic provisioning of a PVC for EACH replica pod
+  volumeClaimTemplates:
+    - metadata:
+        name: data-volume
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 250Mi

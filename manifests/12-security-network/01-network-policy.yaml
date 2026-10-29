@@ -1,0 +1,42 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kubepulse-netpol
+  namespace: kubepulse-dev
+  labels:
+    app.kubernetes.io/name: kubepulse
+spec:
+  podSelector:
+    matchLabels:
+      app: kubepulse
+  policyTypes:
+    - Ingress
+    - Egress
+
+  # Ingress Rules: Who can call this pod
+  ingress:
+    # Allow incoming traffic on port 80 from pods with ingress-controller or same namespace
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+        - podSelector:
+            matchLabels:
+              tier: frontend
+      ports:
+        - protocol: TCP
+          port: 80
+
+  # Egress Rules: Where this pod can send traffic
+  egress:
+    # Allow DNS resolution
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53

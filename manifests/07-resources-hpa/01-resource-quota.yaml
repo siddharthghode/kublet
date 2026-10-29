@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: compute-quota
+  namespace: kubepulse-dev
+spec:
+  hard:
+    # Compute resources aggregate limit for the entire namespace
+    requests.cpu: "2"
+    requests.memory: 2Gi
+    limits.cpu: "4"
+    limits.memory: 4Gi
+    # Workload object count limits
+    pods: "15"
+    services: "10"
+    configmaps: "10"
+    secrets: "10"
+    persistentvolumeclaims: "5"

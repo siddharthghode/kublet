@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubepulse-hpa-deployment
+  namespace: kubepulse-dev
+  labels:
+    app.kubernetes.io/name: kubepulse
+    app.kubernetes.io/component: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: kubepulse-hpa
+  template:
+    metadata:
+      labels:
+        app: kubepulse-hpa
+    spec:
+      containers:
+        - name: kubepulse
+          image: kubepulse:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+          # Explicit requests and limits are mandatory for HPA metrics calculation
+          resources:
+            requests:
+              cpu: 100m      # 0.1 CPU core guaranteed
+              memory: 64Mi   # 64 Mebibytes RAM guaranteed
+            limits:
+              cpu: 500m      # 0.5 CPU core maximum limit
+              memory: 256Mi  # 256 Mebibytes RAM maximum limit

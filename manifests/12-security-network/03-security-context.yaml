@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubepulse-hardened
+  namespace: kubepulse-dev
+  labels:
+    app.kubernetes.io/name: kubepulse
+    security.kubernetes.io/hardened: "true"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: kubepulse-hardened
+  template:
+    metadata:
+      labels:
+        app: kubepulse-hardened
+    spec:
+      # Pod-level security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101 # nginx user in nginx:alpine is UID 101
+        runAsGroup: 101
+        fsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+
+      volumes:
+        - name: nginx-cache
+          emptyDir: {}
+        - name: nginx-run
+          emptyDir: {}
+
+      containers:
+        - name: kubepulse
+          image: kubepulse:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+
+          # Container-level security context
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false # Set true when caching dirs are tmpfs
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - NET_BIND_SERVICE # Allow binding to port 80
+
+          volumeMounts:
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+            - name: nginx-run
+              mountPath: /var/run

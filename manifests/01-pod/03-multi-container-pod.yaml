@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kubepulse-sidecar-pod
+  namespace: kubepulse-dev
+  labels:
+    app.kubernetes.io/name: kubepulse
+    app.kubernetes.io/instance: kubepulse-sidecar
+    pattern: sidecar
+spec:
+  volumes:
+    - name: shared-logs
+      emptyDir: {}
+  containers:
+    # Main Application Container
+    - name: kubepulse
+      image: kubepulse:latest
+      imagePullPolicy: IfNotPresent
+      ports:
+        - name: http
+          containerPort: 80
+      volumeMounts:
+        - name: shared-logs
+          mountPath: /var/log/nginx
+
+    # Sidecar Container (e.g. Log Tailer / Metric Collector)
+    - name: log-sidecar
+      image: busybox:1.36
+      command: ["/bin/sh", "-c"]
+      args:
+        - |
+          echo "Sidecar started, tailing shared nginx access log..."
+          touch /var/log/nginx/access.log
+          tail -n+1 -f /var/log/nginx/access.log
+      volumeMounts:
+        - name: shared-logs
+          mountPath: /var/log/nginx
